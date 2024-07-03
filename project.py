@@ -28,7 +28,6 @@ option2_rect = option2_text.get_rect(center=(WIDTH // 1.35, HEIGHT // 1 - 200))
 
 
 def flappy():
-
     FPS = 37
     FPSCLOCK = pygame.time.Clock()
     SCREENWIDTH = 400
@@ -259,15 +258,14 @@ def flappy():
             pygame.transform.rotate(pygame.image.load(PIPE).convert_alpha(), 180),
             pygame.image.load(PIPE).convert_alpha(),
         )
+        GAME_IMAGES["background"] = pygame.image.load(BACKGROUND).convert()
+        GAME_IMAGES["player"] = pygame.image.load(PLAYER).convert_alpha()
 
         GAME_SOUNDS["die"] = pygame.mixer.Sound("all/audio/die.wav")
         GAME_SOUNDS["hit"] = pygame.mixer.Sound("all/audio/hit.wav")
-        GAME_SOUNDS["point"] = pygame.mixer.Sound("all/audio/point.mp3")
-        GAME_SOUNDS["swoosh"] = pygame.mixer.Sound("all/audio/swoosh.mp3")
-        GAME_SOUNDS["wing"] = pygame.mixer.Sound("all/audio/wing.mp3")
-
-        GAME_IMAGES["background"] = pygame.image.load(BACKGROUND).convert()
-        GAME_IMAGES["player"] = pygame.image.load(PLAYER).convert_alpha()
+        GAME_SOUNDS["point"] = pygame.mixer.Sound("all/audio/point.wav")
+        GAME_SOUNDS["swoosh"] = pygame.mixer.Sound("all/audio/swoosh.wav")
+        GAME_SOUNDS["wing"] = pygame.mixer.Sound("all/audio/wing.wav")
 
         while True:
             welcomeScreen()
@@ -275,164 +273,182 @@ def flappy():
 
 
 def space_war():
-    import random
-    import pygame
-    from pygame import mixer
-
     pygame.init()
 
-    screen = pygame.display.set_mode((800, 600))
-
+    WIDTH, HEIGHT = 1200, 600
+    win = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Space War")
-    icon = pygame.image.load("game/img/ufo.png")
-    pygame.display.set_icon(icon)
 
-    playerImg = pygame.image.load("game/img/player.png")
-    playerX = 370
-    playerY = 480
-    playerX_change = 0
+    # Load background image
+    background_img = pygame.image.load("background1.png")
 
-    enemyImg = []
-    enemyX = []
-    enemyY = []
-    enemyX_change = []
-    enemyY_change = []
-    num_of_enemies = 6
+    # Load spaceship images
+    spaceship_img1 = pygame.image.load("spaceship1.png")
+    spaceship_img1 = pygame.transform.scale(spaceship_img1, (50, 50))
 
-    for i in range(num_of_enemies):
-        enemyImg.append(pygame.image.load("game/img/enemy.png"))
-        enemyX.append(random.randint(0, 735))
-        enemyY.append(random.randint(50, 150))
-        enemyX_change.append(4)
-        enemyY_change.append(40)
+    spaceship_img2 = pygame.image.load("spaceship2.png")
+    spaceship_img2 = pygame.transform.scale(spaceship_img2, (50, 50))
 
-    bulletImg = pygame.image.load("game/img/bullet.png")
-    bulletX = 0
-    bulletY = 480
-    bulletX_change = 0
-    bulletY_change = 10
-    bullet_state = "ready"
+    # Load bullet image
+    bullet_img = pygame.image.load("bullet.png")
+    bullet_img = pygame.transform.scale(bullet_img, (10, 10))
 
-    score_value = 0
-    font = pygame.font.Font("freesansbold.ttf", 32)
+    # Spaceship properties
+    spaceship_width = 50
+    spaceship_height = 50
+    spaceship_speed = 5
 
-    textX = 10
-    textY = 10
+    # Bullet properties
+    bullet_speed = 7
+    bullet_width = 10
+    bullet_height = 10
 
-    over_font = pygame.font.Font("freesansbold.ttf", 64)
+    # Spaceship class
+    class Spaceship:
+        def __init__(self, x, y, image):
+            self.x = x
+            self.y = y
+            self.image = image
+            self.bullets = []
 
-    def show_score(x, y):
-        score = font.render("Score : " + str(score_value), True, (255, 255, 255))
-        screen.blit(score, (x, y))
+        def draw(self, win):
+            win.blit(self.image, (self.x, self.y))
+            for bullet in self.bullets:
+                bullet.draw(win)
 
-    def game_over_text():
-        over_text = over_font.render("GAME OVER", True, (255, 255, 255))
-        screen.blit(over_text, (200, 250))
+        def move_bullets(self, vel, height):
+            for bullet in self.bullets:
+                bullet.move(vel)
+                if bullet.off_screen(height):
+                    self.bullets.remove(bullet)
 
-    def player(x, y):
-        screen.blit(playerImg, (x, y))
+    # Bullet class
+    class Bullet:
+        def __init__(self, x, y, image):
+            self.x = x
+            self.y = y
+            self.image = image
 
-    def enemy(x, y, i):
-        screen.blit(enemyImg[i], (x, y))
+        def draw(self, win):
+            win.blit(self.image, (self.x, self.y))
 
-    def fire_bullet(x, y):
-        global bullet_state
-        bullet_state = "fire"
-        screen.blit(bulletImg, (x + 16, y + 10))
+        def move(self, vel):
+            self.y += vel
 
-    def isCollision(enemyX, enemyY, bulletX, bulletY):
-        distance = ((enemyX - bulletX) ** 2 + (enemyY - bulletY) ** 2) ** 0.5
-        if distance < 27:
-            return True
-        else:
-            return False
+        def off_screen(self, height):
+            return not (0 <= self.y <= height)
 
-    running = True
-    while running:
-        screen.fill((0, 0, 0))
-        background = pygame.image.load("game/img/background.png")
-        screen.blit(background, (0, 0))
+        def collision(self, obj):
+            return collide(self, obj)
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+    def collide(obj1, obj2):
+        offset_x = obj2.x - obj1.x
+        offset_y = obj2.y - obj1.y
+        return obj1.image.get_rect().colliderect(
+            obj2.image.get_rect().move(offset_x, offset_y)
+        )
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    playerX_change = -5
-                if event.key == pygame.K_RIGHT:
-                    playerX_change = 5
-                if event.key == pygame.K_SPACE:
-                    if bullet_state == "ready":
-                        bulletX = playerX
-                        fire_bullet(bulletX, bulletY)
-
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
-                    playerX_change = 0
-
-        playerX += playerX_change
-        if playerX <= 0:
-            playerX = 0
-        elif playerX >= 736:
-            playerX = 736
-
-        for i in range(num_of_enemies):
-
-            if enemyY[i] > 440:
-                for j in range(num_of_enemies):
-                    enemyY[j] = 2000
-                game_over_text()
-                break
-
-            enemyX[i] += enemyX_change[i]
-            if enemyX[i] <= 0:
-                enemyX_change[i] = 4
-                enemyY[i] += enemyY_change[i]
-            elif enemyX[i] >= 736:
-                enemyX_change[i] = -4
-                enemyY[i] += enemyY_change[i]
-
-            collision = isCollision(enemyX[i], enemyY[i], bulletX, bulletY)
-            if collision:
-                bulletY = 480
-                bullet_state = "ready"
-                score_value += 1
-                enemyX[i] = random.randint(0, 735)
-                enemyY[i] = random.randint(50, 150)
-
-            enemy(enemyX[i], enemyY[i], i)
-
-        if bulletY <= 0:
-            bulletY = 480
-            bullet_state = "ready"
-
-        if bullet_state == "fire":
-            fire_bullet(bulletX, bulletY)
-            bulletY -= bulletY_change
-
-        player(playerX, playerY)
-        show_score(textX, textY)
+    def draw_window(win, spaceship1, spaceship2, background_img):
+        win.blit(background_img, (0, 0))
+        spaceship1.draw(win)
+        spaceship2.draw(win)
         pygame.display.update()
 
+    def handle_movement(keys, spaceship1, spaceship2, width, height, speed):
+        if keys[pygame.K_a] and spaceship1.x - speed > 0:
+            spaceship1.x -= speed
+        if (
+            keys[pygame.K_d]
+            and spaceship1.x + speed + spaceship1.image.get_width() < width
+        ):
+            spaceship1.x += speed
+        if keys[pygame.K_w] and spaceship1.y - speed > 0:
+            spaceship1.y -= speed
+        if (
+            keys[pygame.K_s]
+            and spaceship1.y + speed + spaceship1.image.get_height() < height
+        ):
+            spaceship1.y += speed
 
-def main():
-    while True:
-        screen.blit(background, (0, 0))
-        screen.blit(option1_text, option1_rect)
-        screen.blit(option2_text, option2_rect)
-        pygame.display.flip()
+        if keys[pygame.K_LEFT] and spaceship2.x - speed > 0:
+            spaceship2.x -= speed
+        if (
+            keys[pygame.K_RIGHT]
+            and spaceship2.x + speed + spaceship2.image.get_width() < width
+        ):
+            spaceship2.x += speed
+        if keys[pygame.K_UP] and spaceship2.y - speed > 0:
+            spaceship2.y -= speed
+        if (
+            keys[pygame.K_DOWN]
+            and spaceship2.y + speed + spaceship2.image.get_height() < height
+        ):
+            spaceship2.y += speed
 
-        for event in pygame.event.get():
-            if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == MOUSEBUTTONDOWN:
-                if option1_rect.collidepoint(event.pos):
-                    space_war()
-                elif option2_rect.collidepoint(event.pos):
-                    flappy()
+    def main():
+        run = True
+        clock = pygame.time.Clock()
+        spaceship1 = Spaceship(100, 300, spaceship_img1)
+        spaceship2 = Spaceship(1000, 300, spaceship_img2)
+
+        while run:
+            clock.tick(60)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    run = False
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_LCTRL:
+                        bullet = Bullet(
+                            spaceship1.x
+                            + spaceship1.image.get_width() // 2
+                            - bullet_width // 2,
+                            spaceship1.y,
+                            bullet_img,
+                        )
+                        spaceship1.bullets.append(bullet)
+
+                    if event.key == pygame.K_RCTRL:
+                        bullet = Bullet(
+                            spaceship2.x
+                            + spaceship2.image.get_width() // 2
+                            - bullet_width // 2,
+                            spaceship2.y + spaceship2.image.get_height(),
+                            bullet_img,
+                        )
+                        spaceship2.bullets.append(bullet)
+
+            keys = pygame.key.get_pressed()
+            handle_movement(
+                keys, spaceship1, spaceship2, WIDTH, HEIGHT, spaceship_speed
+            )
+
+            spaceship1.move_bullets(-bullet_speed, HEIGHT)
+            spaceship2.move_bullets(bullet_speed, HEIGHT)
+
+            draw_window(win, spaceship1, spaceship2, background_img)
+
+        pygame.quit()
+
+    if __name__ == "__main__":
+        main()
 
 
-if __name__ == "__main__":
-    main()
+while True:
+    for event in pygame.event.get():
+        if event.type == QUIT:
+            pygame.quit()
+            sys.exit()
+        elif event.type == MOUSEBUTTONDOWN:
+            mouse_pos = pygame.mouse.get_pos()
+            if option1_rect.collidepoint(mouse_pos):
+                space_war()
+            elif option2_rect.collidepoint(mouse_pos):
+                flappy()
+
+    screen.blit(background, (0, 0))
+    pygame.draw.rect(screen, BLACK, option1_rect.inflate(10, 10), border_radius=5)
+    pygame.draw.rect(screen, BLACK, option2_rect.inflate(10, 10), border_radius=5)
+    screen.blit(option1_text, option1_rect)
+    screen.blit(option2_text, option2_rect)
+    pygame.display.update()
